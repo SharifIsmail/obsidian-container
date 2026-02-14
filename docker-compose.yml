@@ -1,0 +1,14 @@
+services:
+  obsidian:
+    image: lscr.io/linuxserver/obsidian:latest
+    container_name: obsidian
+    env_file: .env
+    volumes:
+      - ${CONFIG_PATH:-./config}:/config
+      - ./custom-cont-init.d:/custom-cont-init.d:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3001:3001"
+      - "127.0.0.1:9999:9999"
+    shm_size: "1g"
+    restart: unless-stopped
