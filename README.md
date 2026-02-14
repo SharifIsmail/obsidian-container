@@ -6,7 +6,7 @@ Based on the [linuxserver/obsidian](https://docs.linuxserver.io/images/docker-ob
 
 ## What's included
 
-- **Obsidian desktop** accessible via browser (KasmVNC on ports 3000/3001)
+- **Obsidian desktop** accessible via browser (Selkies on ports 3000/3001)
 - **Command service** (port 9999) — HTTP API to execute [Obsidian CLI](https://github.com/czottmann/obsidian-cli) commands with token-based auth
 - **Binary patch** — automatically fixes an [Electron bug](https://github.com/electron/electron/issues/49801) where CLI commands containing emoji/CJK characters with spaces hang indefinitely
 
@@ -31,8 +31,8 @@ vi .env          # set CUSTOM_USER and PASSWORD
 
 | Variable | Description |
 |----------|-------------|
-| `CUSTOM_USER` | KasmVNC web UI username |
-| `PASSWORD` | KasmVNC web UI password |
+| `CUSTOM_USER` | Web UI username |
+| `PASSWORD` | Web UI password |
 | `PUID` / `PGID` | Container user/group IDs (default: 1000) |
 | `TZ` | Timezone (default: `Etc/UTC`) |
 
@@ -84,8 +84,8 @@ Download `obsidian-skill.zip` from this repo and extract the two files (`skill.m
 
 | Port | Service |
 |------|---------|
-| 3000 | KasmVNC web UI (HTTP) |
-| 3001 | KasmVNC web UI (HTTPS) |
+| 3000 | Selkies web UI (HTTP) |
+| 3001 | Selkies web UI (HTTPS) |
 | 9999 | Command service API |
 
 All ports bind to `127.0.0.1` by default. Use a reverse proxy (e.g. nginx) to expose them externally with TLS.
