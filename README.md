@@ -45,6 +45,7 @@ config/
   cmd-service/
     tokens.md           # auth tokens
     allowed-commands.md  # command allowlist
+    vault-path.md       # vault root path
   ...                   # Obsidian app data, vaults, plugins
 ```
 
@@ -75,6 +76,22 @@ curl -s -X POST http://localhost:9999 \
   -H "Authorization: Bearer <token>" \
   -d '{"commands": ["obsidian read file=Recipe", "obsidian tags all counts"]}'
 ```
+
+### File upload
+
+```bash
+# Write a file to the vault
+curl -s -X PUT http://localhost:9999/vault/notes/hello.md \
+  -H "Authorization: Bearer <token>" \
+  -d "# Hello World"
+
+# Upload binary content
+curl -s -X PUT http://localhost:9999/vault/attachments/image.png \
+  -H "Authorization: Bearer <token>" \
+  --data-binary @image.png
+```
+
+Parent directories are created automatically. The vault root defaults to `/config` and can be overridden in `config/cmd-service/vault-path.md`.
 
 ## Using with AI agents
 

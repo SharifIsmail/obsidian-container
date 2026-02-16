@@ -16,13 +16,15 @@ Token file format (tokens.md):
 Allowed commands file (allowed-commands.md):
   One command name per line. Falls back to {"obsidian"} if missing.
 
-POST / — execute commands from JSON body {"commands": [...]}
-GET /  — health check / token validation
+POST /        — execute commands from JSON body {"commands": [...]}
+GET /         — health check / token validation
+PUT /vault/<path> — write a file to the vault
 """
 
 import http.server
 import json
 import os
+import pwd
 import re
 import shlex
 import subprocess
@@ -32,8 +34,15 @@ import time
 
 TOKEN_FILE = "/config/cmd-service/tokens.md"
 ALLOWED_COMMANDS_FILE = "/config/cmd-service/allowed-commands.md"
+VAULT_PATH_FILE = "/config/cmd-service/vault-path.md"
 SESSION_TIMEOUT = 600  # 10 minutes
 DEFAULT_ALLOWED = {"obsidian"}
+
+try:
+    _abc = pwd.getpwnam("abc")
+    ABC_UID, ABC_GID = _abc.pw_uid, _abc.pw_gid
+except KeyError:
+    ABC_UID, ABC_GID = 1000, 1000
 
 lock = threading.Lock()
 
@@ -130,6 +139,34 @@ def get_allowed_commands():
             if stripped and not stripped.startswith("#"):
                 allowed.add(stripped)
     return allowed or DEFAULT_ALLOWED
+
+
+def get_vault_path():
+    """Read vault root from config file. Defaults to /config."""
+    if os.path.isfile(VAULT_PATH_FILE):
+        with open(VAULT_PATH_FILE, "r") as f:
+            for line in f:
+                stripped = line.strip()
+                if stripped and not stripped.startswith("#"):
+                    return stripped
+    return "/config"
+
+
+def _write_file_as_abc(full_path, content):
+    """Write file, create parent dirs, chown to abc user."""
+    parent = os.path.dirname(full_path)
+    dirs_to_chown = []
+    d = parent
+    while not os.path.exists(d):
+        dirs_to_chown.append(d)
+        d = os.path.dirname(d)
+    if dirs_to_chown:
+        os.makedirs(parent, exist_ok=True)
+        for new_dir in dirs_to_chown:
+            os.chown(new_dir, ABC_UID, ABC_GID)
+    with open(full_path, "wb") as f:
+        f.write(content)
+    os.chown(full_path, ABC_UID, ABC_GID)
 
 
 OBS_ENV = {
@@ -267,6 +304,51 @@ class CommandHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/plain")
         self.end_headers()
         self.wfile.write(result.encode())
+
+    def do_PUT(self):
+        if not self._authenticate():
+            return
+
+        if not self.path.startswith("/vault/"):
+            self.send_response(404)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"Not found. PUT /vault/<path>\n")
+            return
+
+        rel_path = self.path[len("/vault/"):]
+        if not rel_path or ".." in rel_path.split("/"):
+            self.send_response(400)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"Invalid path.\n")
+            return
+
+        vault_root = os.path.realpath(get_vault_path())
+        full_path = os.path.realpath(os.path.join(vault_root, rel_path))
+        if not full_path.startswith(vault_root + "/"):
+            self.send_response(400)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"Path traversal denied.\n")
+            return
+
+        content_length = int(self.headers.get("Content-Length", 0))
+        content = self.rfile.read(content_length) if content_length else b""
+
+        try:
+            _write_file_as_abc(full_path, content)
+        except Exception as e:
+            self.send_response(500)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(f"Write failed: {e}\n".encode())
+            return
+
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(f"OK {rel_path}\n".encode())
 
     def log_message(self, format, *args):
         sys.stderr.write("[cmd-service] %s - %s\n" % (self.client_address[0], format % args))
