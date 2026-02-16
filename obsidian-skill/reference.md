@@ -22,8 +22,10 @@ Parameters take values (`param=value`). Flags are boolean switches (include to e
 - [Plugins](#plugins)
 - [Command Palette](#command-palette)
 - [Workspace & Tabs](#workspace--tabs)
+- [Unique Notes](#unique-notes)
 - [Bases](#bases)
 - [Random Notes](#random-notes)
+- [Web Viewer](#web-viewer)
 - [Sync](#sync)
 - [Publish](#publish)
 - [Themes & Snippets](#themes--snippets)
@@ -37,6 +39,7 @@ Parameters take values (`param=value`). Flags are boolean switches (include to e
 | `version` | Show Obsidian version |
 | `vault [info=name\|path\|files\|folders\|size]` | Show vault info |
 | `vaults [total] [verbose]` | List known vaults |
+| `vault:open name=<name>` | Switch to a different vault (TUI only) |
 | `reload` | Reload the app window |
 | `restart` | Restart the app |
 
@@ -62,8 +65,8 @@ Parameters take values (`param=value`). Flags are boolean switches (include to e
 |---|---|
 | `daily [paneType=tab\|split\|window] [silent]` | Open/create daily note |
 | `daily:read` | Read daily note contents |
-| `daily:append content=<text> [inline] [silent]` | Append to daily note |
-| `daily:prepend content=<text> [inline] [silent]` | Prepend to daily note |
+| `daily:append content=<text> [paneType=tab\|split\|window] [inline] [silent]` | Append to daily note |
+| `daily:prepend content=<text> [paneType=tab\|split\|window] [inline] [silent]` | Prepend to daily note |
 
 ## Search
 
@@ -195,6 +198,12 @@ diff filter=sync                # only sync versions
 | `tab:open [group=] [file=] [view=]` | Open a new tab |
 | `recents [total]` | List recently opened files |
 
+## Unique Notes
+
+| Command | Description |
+|---|---|
+| `unique [name=] [content=] [paneType=tab\|split\|window] [silent]` | Create unique note |
+
 ## Bases
 
 | Command | Description |
@@ -210,6 +219,12 @@ diff filter=sync                # only sync versions
 |---|---|
 | `random [folder=] [newtab] [silent]` | Open a random note |
 | `random:read [folder=]` | Read a random note |
+
+## Web Viewer
+
+| Command | Description |
+|---|---|
+| `web url=<url> [newtab]` | Open URL in web viewer |
 
 ## Sync
 

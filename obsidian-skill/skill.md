@@ -28,6 +28,17 @@ Before running any command, you need an **endpoint** and a **token**.
 
 Include the same token in every request.
 
+## First Use: Understand the Vault
+
+On your first interaction with a vault, **read the vault's README or equivalent guide** (e.g. `obsidian read file=README`) to understand the vault's rules, conventions, and structure. Look for:
+
+- Folder organization and naming conventions
+- Tagging schemes and property conventions
+- Templates in use
+- Any rules or preferences the user has documented
+
+**Follow existing conventions consistently.** Match the folder structure, naming patterns, frontmatter format, and tagging style already in use. If you believe a different approach would be better, propose it explicitly to the user — never silently diverge from established patterns.
+
 ## API
 
 ```bash
@@ -83,27 +94,37 @@ Commands follow the pattern: `obsidian <command> [param=value ...] [flags ...]`
 Obsidian uses CommonMark with extensions. Standard markdown works as expected. Key Obsidian-specific syntax:
 
 - **Wikilinks**: `[[Note Name]]` or `[[Note Name|display text]]`
-- **Embeds**: `![[Note Name]]` or `![[image.png]]`
+- **Embeds**: `![[Note Name]]`, `![[image.png]]`, `![[image.png|300]]` (width)
+- **Heading links**: `[[Note#Heading]]`, `[[#Heading]]` (same note)
+- **Block references**: `[[Note#^block-id]]` — define with `^id` at end of paragraph
 - **Highlights**: `==highlighted text==`
 - **Comments**: `%%hidden in reading view%%`
 - **Tags**: `#tag` or `#nested/tag` (in text or YAML frontmatter)
-- **Callouts**: `> [!note]`, `> [!warning]`, `> [!tip]`, etc.
+- **Callouts**: `> [!note]`, `> [!warning]`, `> [!tip]`, etc. Add `-` for collapsed, `+` for expanded
 - **Tasks**: `- [ ] incomplete`, `- [x] complete`
-- **Block references**: `[[Note^block-id]]`
 - **Footnotes**: `[^1]` with `[^1]: text` definition
 
-**Important**: Do not write unclosed XML-style tags like `<open>` without closing them. Obsidian renders HTML inline, so unclosed tags break the rendering of everything after them. Either close the tag (`<open></open>`), escape it (`\<open>`), or wrap it in a code span (`` `<open>` ``).
+### Key Pitfalls
 
-**Markdown inside HTML is not rendered**: Text like `**bold**` inside `<div>` tags will appear as literal asterisks.
+- **Unclosed HTML tags break rendering.** `<details>` without `</details>` corrupts everything after it. Always close tags, escape with `\<tag>`, or wrap in backticks.
+- **Markdown inside HTML is not rendered.** `<div>**bold**</div>` shows literal asterisks.
+- **HTML blocks must not contain blank lines.** Blank lines within `<table>...</table>` break the block.
+- **Pipe characters in table links must be escaped**: `[[Note\|alias]]`, `![[img.png\|200]]`.
+- **Block identifiers** use only Latin letters, numbers, and dashes. For paragraphs, add ` ^id` at end of line. For lists/blockquotes, put `^id` on a separate line with blank lines around it.
 
 ### YAML Frontmatter Pitfalls
 
 - **No inline `#` comments.** YAML treats `#` as a comment delimiter and silently truncates the value. `source: "[[Files]]" # keep this` stores only `Files`. Place instructions in the note body instead.
 - **Always quote wikilinks.** Write `source: "[[Note Name]]"`, not `source: [[Note Name]]`. Unquoted `[[` and `]]` break YAML parsing. This applies to both text and list properties.
 - **Tags must contain at least one non-numeric character.** `2025` is invalid; `y2025` is valid. Allowed characters: letters, numbers, `_`, `-`, `/`.
-- **Property types are not discoverable via CLI.** There is no command to query the type (text, list, number, date, etc.) assigned to a property. Refer to existing notes or templates to determine expected types.
+- **Property types are not discoverable via CLI.** Refer to existing notes or templates to determine expected types. Supported types: `text`, `list`, `number`, `checkbox`, `date`, `datetime`.
+- **Default properties**: `tags` (list), `aliases` (list — alternative names for link suggestions), `cssclasses` (list — CSS styling).
 
-For detailed formatting reference (tables, math, diagrams, properties): See [formatting.md](formatting.md)
+### Detailed References
+
+- [formatting.md](formatting.md) — Complete syntax reference (tables, math, diagrams, callout types, code blocks, HTML, escaping)
+- [links-and-embeds.md](links-and-embeds.md) — Internal links, embeds (images, PDFs, audio, search results), aliases, block references
+- [properties.md](properties.md) — Property types, formats, defaults, Publish properties, search syntax
 
 ## Examples
 
@@ -140,11 +161,13 @@ curl -s -X POST "$ENDPOINT" -H "Authorization: Bearer $TOKEN" \
 | **Outline** | `outline [file=] [format=tree\|md]` |
 | **Bookmarks** | `bookmarks`, `bookmark file=<path>` |
 | **Templates** | `templates`, `template:read name=<t>`, `template:insert name=<t>` |
+| **Unique notes** | `unique [name=] [content=] [silent]` |
 | **Diff/History** | `diff [file=] [from=] [to=]`, `history`, `history:read`, `history:restore` |
 | **Plugins** | `plugins`, `plugin id=<id>`, `plugin:enable`, `plugin:disable`, `plugin:reload` |
 | **Workspace** | `workspace`, `workspaces`, `tabs`, `recents` |
 | **Word count** | `wordcount [file=] [words] [characters]` |
-| **Developer** | `dev:screenshot path=<f>`, `dev:eval code=<js>`, `dev:console`, `dev:errors` |
+| **Web viewer** | `web url=<url> [newtab]` |
+| **Developer** | `dev:screenshot path=<f>`, `eval code=<js>`, `dev:console`, `dev:errors` |
 
 **Full command reference with all parameters and flags**: See [reference.md](reference.md)
 
