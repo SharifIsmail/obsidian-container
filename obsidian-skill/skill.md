@@ -126,6 +126,62 @@ Obsidian uses CommonMark with extensions. Standard markdown works as expected. K
 - [links-and-embeds.md](links-and-embeds.md) — Internal links, embeds (images, PDFs, audio, search results), aliases, block references
 - [properties.md](properties.md) — Property types, formats, defaults, Publish properties, search syntax
 
+## Bases
+
+Bases is a core plugin that creates database-like views of notes. Each base defines filters, formulas, and views — all stored as YAML in `.base` files or embedded in code blocks. All data stays in your Markdown files and their properties; Bases just provides structured views.
+
+### Key Concepts
+
+- **Filters** narrow results from the vault using property comparisons and functions like `file.hasTag()`, `file.inFolder()`, `file.hasLink()`
+- **Formulas** define calculated properties: `total: "price * quantity"`, `overdue: 'if(due_date < now(), "Late", "")'`
+- **Views** display results as table, cards, list, or map — each with its own filters, sorting, and grouping
+- **Properties** — three kinds: note properties (frontmatter), file properties (`file.name`, `file.mtime`), and formula properties
+- **`this`** — refers to the file where the base is displayed (the embedding note, not the base itself)
+
+### Embedding Bases
+
+```markdown
+![[Projects.base]]              Embed first view
+![[Projects.base#Kanban]]       Embed specific view
+```
+
+Or inline as a code block:
+
+````markdown
+```base
+filters:
+  and:
+    - file.hasTag("project")
+    - 'status != "done"'
+views:
+  - type: table
+    name: Active Projects
+```
+````
+
+### Common Filter Patterns
+
+```yaml
+file.hasTag("project")           # files with tag
+file.inFolder("Notes")           # files in folder (recursive)
+file.hasLink("[[Reference]]")    # files linking to a note
+file.mtime > now() - "7d"        # modified in last week
+status == "active"               # property value match
+```
+
+### CLI Commands
+
+```
+obsidian bases                                          # list .base files
+obsidian base:query file=Projects view=Table format=md  # query a base
+obsidian base:create name="New Item" silent             # create item
+```
+
+### Detailed References
+
+- [bases.md](bases.md) — Syntax, filters, formulas, views (table/cards/list/map), summaries, operators, types
+- [bases-functions.md](bases-functions.md) — Complete function reference (global, string, number, date, list, link, file, object, regex)
+
 ## Examples
 
 ```bash
