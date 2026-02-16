@@ -1,3 +1,6 @@
 .env
 config/
 obsidian-skill.zip
+__pycache__/
+*.pyc
+.pytest_cache/

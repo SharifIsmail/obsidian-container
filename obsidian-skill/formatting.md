@@ -17,6 +17,44 @@ status: draft
 
 Property types: `text`, `list`, `number`, `checkbox`, `date`, `datetime`. Tags in frontmatter don't need `#`.
 
+### Common Pitfalls
+
+**Inline `#` comments truncate values.** YAML interprets `#` as a comment delimiter:
+```yaml
+# WRONG — Obsidian stores "Files" instead of "[[Files]]"
+isAnInstanceOf: "[[Files]]" # KEEP — do not change
+
+# CORRECT — no inline comment
+isAnInstanceOf: "[[Files]]"
+```
+
+**Wikilinks must be quoted.** Unquoted `[[` and `]]` break YAML parsing:
+```yaml
+# WRONG
+source: [[My Note]]
+
+# CORRECT
+source: "[[My Note]]"
+related:
+  - "[[Note A]]"
+  - "[[Note B]]"
+```
+Obsidian auto-adds quotes in the UI, but when writing programmatically you must add them yourself.
+
+**Tags must contain at least one non-numeric character:**
+```yaml
+# INVALID — purely numerical
+tags:
+  - 2025
+
+# VALID
+tags:
+  - y2025
+```
+Allowed characters: letters, numbers, `_`, `-`, `/`.
+
+**Property types are not discoverable via CLI.** There is no command to query the assigned type of a property. Refer to existing notes or templates. Known types: `text`, `list`, `number`, `checkbox`, `date`, `datetime`, `tags`.
+
 ## Internal Links & Embeds
 
 ```markdown

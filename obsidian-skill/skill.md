@@ -46,7 +46,16 @@ curl -s -X POST "$ENDPOINT" \
 
 # Validate token (GET)
 curl -s -H "Authorization: Bearer $TOKEN" "$ENDPOINT"
+
+# Upload non-markdown files to the vault (PUT, raw bytes)
+curl -s -X PUT "$ENDPOINT/vault/attachments/image.png" \
+  -H "Authorization: Bearer $TOKEN" \
+  --data-binary @image.png
 ```
+
+**POST vs PUT:**
+- **POST** — use for **all markdown operations**. CLI commands (`create`, `append`, `prepend`) integrate with Obsidian's file index, trigger plugins, and update caches. Always prefer POST for notes.
+- **PUT `/vault/<path>`** — use for **non-markdown files** (images, PDFs, attachments). Content is sent as raw bytes directly to disk. Also available as a **fallback** for markdown if POST fails due to escaping issues.
 
 ## Obsidian CLI Syntax
 
@@ -62,6 +71,12 @@ Commands follow the pattern: `obsidian <command> [param=value ...] [flags ...]`
 - `file=<name>` — wikilink-style resolution (by filename, no path/extension needed)
 - `path=<path>` — exact path from vault root (e.g. `Notes/Recipe.md`)
 - If neither given, defaults to the active file
+
+**Always verify the filepath** before editing or creating files:
+- Before editing, use `read` to confirm you have the right file.
+- Before creating, use `files` or `search` to verify the destination path and check for existing files.
+- When multiple files share the same name, use `path=` instead of `file=` to target the correct one.
+- When creating files, specify the full path (e.g. `path=Notes/Subfolder/NewNote.md`) to ensure it lands in the right location.
 
 ## Writing Notes
 
@@ -80,6 +95,13 @@ Obsidian uses CommonMark with extensions. Standard markdown works as expected. K
 **Important**: Do not write unclosed XML-style tags like `<open>` without closing them. Obsidian renders HTML inline, so unclosed tags break the rendering of everything after them. Either close the tag (`<open></open>`), escape it (`\<open>`), or wrap it in a code span (`` `<open>` ``).
 
 **Markdown inside HTML is not rendered**: Text like `**bold**` inside `<div>` tags will appear as literal asterisks.
+
+### YAML Frontmatter Pitfalls
+
+- **No inline `#` comments.** YAML treats `#` as a comment delimiter and silently truncates the value. `source: "[[Files]]" # keep this` stores only `Files`. Place instructions in the note body instead.
+- **Always quote wikilinks.** Write `source: "[[Note Name]]"`, not `source: [[Note Name]]`. Unquoted `[[` and `]]` break YAML parsing. This applies to both text and list properties.
+- **Tags must contain at least one non-numeric character.** `2025` is invalid; `y2025` is valid. Allowed characters: letters, numbers, `_`, `-`, `/`.
+- **Property types are not discoverable via CLI.** There is no command to query the type (text, list, number, date, etc.) assigned to a property. Refer to existing notes or templates to determine expected types.
 
 For detailed formatting reference (tables, math, diagrams, properties): See [formatting.md](formatting.md)
 
@@ -125,6 +147,28 @@ curl -s -X POST "$ENDPOINT" -H "Authorization: Bearer $TOKEN" \
 | **Developer** | `dev:screenshot path=<f>`, `dev:eval code=<js>`, `dev:console`, `dev:errors` |
 
 **Full command reference with all parameters and flags**: See [reference.md](reference.md)
+
+## Python Helper
+
+For programmatic integrations, see [scripts/obsidian_api.py](scripts/obsidian_api.py) — a standard-library-only helper with two functions:
+
+- `obsidian_cmd(endpoint, token, command, params, flags)` — POST CLI commands. Handles all shlex escaping (only `\` and `"` need it; newlines, `$`, `` ` ``, unicode pass through safely). Rejects null bytes.
+- `obsidian_put(endpoint, token, vault_path, content)` — PUT raw bytes to vault. No escaping needed.
+
+```python
+from obsidian_api import obsidian_cmd, obsidian_put
+
+# Read a note
+obsidian_cmd(EP, TK, "read", params={"file": "Recipe"})
+
+# Create markdown (always use POST for notes)
+obsidian_cmd(EP, TK, "create",
+    params={"name": "Trip", "content": '---\ntags: [travel]\n---\n# Trip\nNotes.'})
+
+# Upload image (use PUT for non-markdown files)
+with open("photo.png", "rb") as f:
+    obsidian_put(EP, TK, "attachments/photo.png", f.read())
+```
 
 ## Troubleshooting
 
