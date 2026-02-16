@@ -1,0 +1,43 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pytest
+
+      - name: Run unit tests
+        run: pytest -v
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.repository == github.repository
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pytest
+
+      - name: Run e2e tests
+        if: env.CMD_SERVICE_URL != ''
+        run: pytest -v -m e2e
+        env:
+          CMD_SERVICE_URL: ${{ secrets.CMD_SERVICE_URL }}
+          CMD_SERVICE_TOKEN: ${{ secrets.CMD_SERVICE_TOKEN }}
