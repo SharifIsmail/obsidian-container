@@ -95,7 +95,7 @@ Parent directories are created automatically. The vault root defaults to `/confi
 
 ## Using with AI agents
 
-Download `obsidian-skill.zip` from this repo and extract the two files (`skill.md` and `reference.md`) into your Obsidian vault. These provide instructions and a command reference that AI agents can read to interact with your vault through the command API.
+Download `obsidian-skill.zip` from the [Releases](https://github.com/SharifIsmail/obsidian-container/releases) page and extract the files into your Obsidian vault. These provide instructions and a command reference that AI agents can read to interact with your vault through the command API. The source files are in the `obsidian-skill/` directory.
 
 ## Ports
 
