@@ -1,0 +1,21 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  attach-skill-zip:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Zip obsidian-skill
+        run: zip -r obsidian-skill.zip obsidian-skill/
+
+      - name: Upload to release
+        run: gh release upload "${{ github.event.release.tag_name }}" obsidian-skill.zip --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
