@@ -326,30 +326,28 @@ def _chunked_retry(base_cmd, command, params, flags):
             chunk_flags.discard("newtab")
             # Remove template param for continuation
             chunk_params.pop("template", None)
-            # For non-daily appends, ensure we target the right file
+            # For non-daily appends, target the file using file_param
+            # (which may have been updated after create if Obsidian renamed)
             if cmd == "append" and file_param:
-                # Use file= for name-based, path= for path-based
-                if "path" in params:
-                    chunk_params["path"] = params["path"]
-                elif "name" in params:
-                    chunk_params["file"] = params["name"]
-                elif "file" in params:
-                    chunk_params["file"] = params["file"]
-                # Remove keys not needed for append
                 chunk_params.pop("name", None)
+                chunk_params.pop("path", None)
+                chunk_params.pop("file", None)
+                # Use file= to target by name resolution (works for renamed files)
+                chunk_params["file"] = file_param
 
         cmd_str = _build_command(base_cmd, cmd, chunk_params, chunk_flags)
         argv = shlex.split(cmd_str)
         output = _run_with_output(argv, timeout=CLI_TIMEOUT)
         outputs.append(output)
 
-        # If first chunk of a create/unique/base:create, try to extract file path
-        # from output for subsequent appends
-        if i == 0 and command in ("create", "unique", "base:create") and not file_param:
-            # Try to parse created file path from output (e.g., "Created Notes/test.md")
+        # After create, always parse the actual created path from output.
+        # Obsidian may rename the file (e.g., "Note.md" → "Note 1.md")
+        # so we must use the real path for subsequent appends.
+        if i == 0 and command in ("create", "unique", "base:create"):
             for line in output.splitlines():
-                if line.startswith("Created ") or line.endswith(".md"):
-                    candidate = line.replace("Created ", "").strip()
+                # Output format: "Created: path/to/file.md" or "Created path/to/file.md"
+                if line.startswith("Created"):
+                    candidate = line.split(":", 1)[-1].strip() if ":" in line else line.replace("Created ", "").strip()
                     if candidate:
                         file_param = candidate
                         break

@@ -86,6 +86,45 @@ class TestCreateChunking:
         assert "[error]" not in result
         assert len(calls) == 1
 
+    def test_medium_append_targets_actual_created_path(self, tmp_config, monkeypatch):
+        """When Obsidian renames a file (e.g. 'Note.md' → 'Note 1.md'),
+        the append must target the actual created path, not the requested one."""
+        orig_calls = []
+
+        def fake_run(argv, timeout=30):
+            orig_calls.append(list(argv))
+            content_len = 0
+            for arg in argv:
+                if arg.startswith("content="):
+                    content_len = len(arg) - len("content=")
+                    break
+            if 1000 <= content_len <= 1800:
+                raise subprocess.TimeoutExpired(cmd=argv, timeout=timeout)
+            if argv[1] == "create":
+                # Simulate Obsidian renaming because file exists
+                return subprocess.CompletedProcess(
+                    args=argv, returncode=0,
+                    stdout="Created: Notes/Note 1.md\n", stderr="",
+                )
+            return subprocess.CompletedProcess(
+                args=argv, returncode=0,
+                stdout="Appended to: Notes/Note 1.md\n", stderr="",
+            )
+
+        monkeypatch.setattr(cmd_service, "_run_obsidian", fake_run)
+        result = cmd_service.execute_command(
+            f'obsidian create path="Notes/Note.md" content="{MEDIUM}" overwrite'
+        )
+        assert "[error]" not in result
+        assert len(orig_calls) >= 3
+        # The append must target the ACTUAL created path, not the original
+        for call in orig_calls[2:]:
+            assert call[1] == "append"
+            # Check that file= or path= points to the renamed file
+            file_args = [a for a in call if a.startswith("file=") or a.startswith("path=")]
+            assert any("Note 1" in a for a in file_args), \
+                f"Append should target 'Note 1.md' but got {file_args}"
+
 
 # ---------------------------------------------------------------------------
 # append
