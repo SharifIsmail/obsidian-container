@@ -33,6 +33,17 @@ OBSIDIAN_CONFIG = "/config/.config/obsidian/obsidian.json"
 SESSION_TIMEOUT = 600  # 10 minutes
 DEFAULT_ALLOWED = {"obsidian"}
 
+# Electron bug mitigation: additionalData is silently dropped for certain
+# ProcessSingleton IPC message sizes (~1060-1700 chars of content).
+# When a content-bearing CLI command times out, we retry with chunked content.
+CONTENT_COMMANDS = {
+    "create", "append", "prepend",
+    "daily:append", "daily:prepend",
+    "unique", "base:create",
+}
+CHUNK_SIZE = 800  # conservative limit per chunk (chars)
+CLI_TIMEOUT = 5   # seconds — normal completion is <1s
+
 try:
     _abc = pwd.getpwnam("abc")
     ABC_UID, ABC_GID = _abc.pw_uid, _abc.pw_gid
@@ -201,6 +212,151 @@ def _run_obsidian(argv, timeout=30):
 
 
 
+def _parse_obsidian_args(argv):
+    """Parse obsidian CLI argv into (command, params, flags).
+
+    After shlex.split, argv looks like:
+      ['obsidian', 'create', 'path=Notes/test.md', 'content=hello', 'overwrite']
+    Returns:
+      ('create', {'path': 'Notes/test.md', 'content': 'hello'}, {'overwrite'})
+    """
+    command = argv[1] if len(argv) > 1 else None
+    params = {}
+    flags = set()
+    for arg in argv[2:]:
+        if "=" in arg:
+            key, _, value = arg.partition("=")
+            params[key] = value
+        else:
+            flags.add(arg)
+    return command, params, flags
+
+
+def _build_command(base_cmd, command, params, flags):
+    """Rebuild a CLI command string from parsed components."""
+    parts = [base_cmd, command]
+    for key, value in params.items():
+        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+        parts.append(f'{key}="{escaped}"')
+    parts.extend(sorted(flags))
+    return " ".join(parts)
+
+
+def _split_content(content, chunk_size):
+    """Split content into chunks, preferring newline boundaries."""
+    if len(content) <= chunk_size:
+        return [content]
+    chunks = []
+    while content:
+        if len(content) <= chunk_size:
+            chunks.append(content)
+            break
+        # Try to split at a newline within the chunk
+        cut = content.rfind("\n", 0, chunk_size)
+        if cut <= 0:
+            cut = chunk_size
+        else:
+            cut += 1  # include the newline in this chunk
+        chunks.append(content[:cut])
+        content = content[cut:]
+    return chunks
+
+
+def _run_with_output(argv, timeout=30):
+    """Run obsidian command and return filtered output string."""
+    result = _run_obsidian(argv, timeout=timeout)
+
+    def _filter(text):
+        return "\n".join(
+            l for l in text.splitlines()
+            if not ("Loading" in l and "app package" in l)
+        )
+
+    output = _filter(result.stdout)
+    if output and not output.endswith("\n"):
+        output += "\n"
+    if result.stderr:
+        filtered_err = _filter(result.stderr)
+        if filtered_err:
+            output += filtered_err + "\n"
+    return output
+
+
+def _chunked_retry(base_cmd, command, params, flags):
+    """Retry a content command by splitting content into chunks.
+
+    Returns output string from all chunk executions combined.
+    """
+    content = params.get("content", "")
+    chunks = _split_content(content, CHUNK_SIZE)
+    file_param = params.get("path") or params.get("name") or params.get("file")
+
+    # For prepend: reverse chunks so last chunk is prepended first.
+    # Each prepend inserts after frontmatter, so reversed order reconstructs
+    # the original content order.
+    is_prepend = command in ("prepend", "daily:prepend")
+    if is_prepend:
+        chunks = list(reversed(chunks))
+
+    # Determine the follow-up command for continuation chunks.
+    # Prepend stays prepend (reversed order); everything else uses append.
+    if is_prepend:
+        followup_cmd = command  # keep prepending in reverse
+    elif command in ("daily:append", "daily:prepend"):
+        followup_cmd = "daily:append"
+    else:
+        followup_cmd = "append"
+
+    outputs = []
+    for i, chunk in enumerate(chunks):
+        chunk_params = dict(params)
+        chunk_params["content"] = chunk
+        chunk_flags = set(flags)
+
+        if i == 0:
+            # First chunk: use original command with all original params/flags
+            cmd = command
+        else:
+            # Continuation chunks: switch to follow-up command, add inline flag
+            cmd = followup_cmd
+            chunk_flags.add("inline")
+            chunk_flags.discard("overwrite")
+            chunk_flags.discard("template")
+            chunk_flags.discard("open")
+            chunk_flags.discard("newtab")
+            # Remove template param for continuation
+            chunk_params.pop("template", None)
+            # For non-daily appends, ensure we target the right file
+            if cmd == "append" and file_param:
+                # Use file= for name-based, path= for path-based
+                if "path" in params:
+                    chunk_params["path"] = params["path"]
+                elif "name" in params:
+                    chunk_params["file"] = params["name"]
+                elif "file" in params:
+                    chunk_params["file"] = params["file"]
+                # Remove keys not needed for append
+                chunk_params.pop("name", None)
+
+        cmd_str = _build_command(base_cmd, cmd, chunk_params, chunk_flags)
+        argv = shlex.split(cmd_str)
+        output = _run_with_output(argv, timeout=CLI_TIMEOUT)
+        outputs.append(output)
+
+        # If first chunk of a create/unique/base:create, try to extract file path
+        # from output for subsequent appends
+        if i == 0 and command in ("create", "unique", "base:create") and not file_param:
+            # Try to parse created file path from output (e.g., "Created Notes/test.md")
+            for line in output.splitlines():
+                if line.startswith("Created ") or line.endswith(".md"):
+                    candidate = line.replace("Created ", "").strip()
+                    if candidate:
+                        file_param = candidate
+                        break
+
+    return "".join(outputs)
+
+
 def execute_command(cmd):
     """Execute a command as abc user with Obsidian environment."""
     try:
@@ -215,24 +371,23 @@ def execute_command(cmd):
     if argv[0] not in allowed:
         return f"[error] Command '{argv[0]}' not allowed. Allowed: {', '.join(sorted(allowed))}\n"
 
+    base_cmd = argv[0]
+    command, params, flags = _parse_obsidian_args(argv)
+    content = params.get("content", "")
+    is_content_cmd = command in CONTENT_COMMANDS and content
+
     try:
-        result = _run_obsidian(argv)
-        # Filter Electron noise from stdout and stderr
-        def _filter(text):
-            return "\n".join(
-                l for l in text.splitlines()
-                if not ("Loading" in l and "app package" in l)
-            )
-        output = _filter(result.stdout)
-        if output and not output.endswith("\n"):
-            output += "\n"
-        if result.stderr:
-            filtered_err = _filter(result.stderr)
-            if filtered_err:
-                output += filtered_err + "\n"
-        return output
+        timeout = CLI_TIMEOUT if is_content_cmd else 30
+        return _run_with_output(argv, timeout=timeout)
     except subprocess.TimeoutExpired:
-        return "[error] Command timed out after 30s\n"
+        if is_content_cmd:
+            try:
+                return _chunked_retry(base_cmd, command, params, flags)
+            except subprocess.TimeoutExpired:
+                return f"[error] Command timed out after chunked retry\n"
+            except Exception as e:
+                return f"[error] CLI timed out and chunked retry failed: {e}\n"
+        return f"[error] Command timed out after 30s\n"
     except Exception as e:
         return f"[error] {e}\n"
 
