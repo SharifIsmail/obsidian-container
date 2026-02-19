@@ -430,6 +430,140 @@ class TestSplitContent:
         assert "".join(chunks) == content
 
 
+class TestContinuationParamsCleanliness:
+    """Verify continuation chunks only carry params the follow-up command accepts."""
+
+    def test_create_continuation_has_only_file_content_inline(self, tmp_config, monkeypatch):
+        """create → append: continuation must not carry name=, path=, template=, overwrite, open, newtab."""
+        orig_calls = []
+
+        def fake_run(argv, timeout=30):
+            orig_calls.append(list(argv))
+            content_len = 0
+            for arg in argv:
+                if arg.startswith("content="):
+                    content_len = len(arg) - len("content=")
+                    break
+            if 1000 <= content_len <= 1800:
+                raise subprocess.TimeoutExpired(cmd=argv, timeout=timeout)
+            if argv[1] == "create":
+                return subprocess.CompletedProcess(
+                    args=argv, returncode=0,
+                    stdout="Created: Notes/Test.md\n", stderr="",
+                )
+            return subprocess.CompletedProcess(
+                args=argv, returncode=0, stdout="OK\n", stderr="",
+            )
+
+        monkeypatch.setattr(cmd_service, "_run_obsidian", fake_run)
+        cmd_service.execute_command(
+            f'obsidian create name="Test" path="Notes/Test.md" template="MyTemplate" content="{MEDIUM}" overwrite open newtab'
+        )
+        for call in orig_calls[2:]:
+            all_args = " ".join(call)
+            assert "name=" not in all_args
+            assert "path=" not in all_args
+            assert "template=" not in all_args
+            assert "overwrite" not in all_args
+            assert "open" not in call  # exact flag match
+            assert "newtab" not in call
+
+    def test_unique_continuation_no_paneType(self, tmp_config, monkeypatch):
+        """unique → append: continuation must not carry name= or paneType=."""
+        orig_calls = []
+
+        def fake_run(argv, timeout=30):
+            orig_calls.append(list(argv))
+            content_len = 0
+            for arg in argv:
+                if arg.startswith("content="):
+                    content_len = len(arg) - len("content=")
+                    break
+            if 1000 <= content_len <= 1800:
+                raise subprocess.TimeoutExpired(cmd=argv, timeout=timeout)
+            if argv[1] == "unique":
+                return subprocess.CompletedProcess(
+                    args=argv, returncode=0,
+                    stdout="Created: 202601011200.md\n", stderr="",
+                )
+            return subprocess.CompletedProcess(
+                args=argv, returncode=0, stdout="OK\n", stderr="",
+            )
+
+        monkeypatch.setattr(cmd_service, "_run_obsidian", fake_run)
+        cmd_service.execute_command(
+            f'obsidian unique name="My Note" paneType="tab" content="{MEDIUM}" open'
+        )
+        for call in orig_calls[2:]:
+            all_args = " ".join(call)
+            assert "name=" not in all_args
+            assert "paneType=" not in all_args
+            assert "open" not in call
+
+    def test_base_create_continuation_no_view(self, tmp_config, monkeypatch):
+        """base:create → append: continuation must not carry file= (base ref), view=, name=."""
+        orig_calls = []
+
+        def fake_run(argv, timeout=30):
+            orig_calls.append(list(argv))
+            content_len = 0
+            for arg in argv:
+                if arg.startswith("content="):
+                    content_len = len(arg) - len("content=")
+                    break
+            if 1000 <= content_len <= 1800:
+                raise subprocess.TimeoutExpired(cmd=argv, timeout=timeout)
+            if argv[1] == "base:create":
+                return subprocess.CompletedProcess(
+                    args=argv, returncode=0,
+                    stdout="Created: Notes/Item.md\n", stderr="",
+                )
+            return subprocess.CompletedProcess(
+                args=argv, returncode=0, stdout="OK\n", stderr="",
+            )
+
+        monkeypatch.setattr(cmd_service, "_run_obsidian", fake_run)
+        cmd_service.execute_command(
+            f'obsidian base:create file="tasks.base" view="Table" name="New Item" content="{MEDIUM}" open newtab'
+        )
+        for call in orig_calls[2:]:
+            all_args = " ".join(call)
+            assert "view=" not in all_args
+            assert "name=" not in all_args
+            assert "open" not in call
+            assert "newtab" not in call
+            # file= should point to the created note, not the base file
+            file_args = [a for a in call if a.startswith("file=")]
+            assert len(file_args) == 1
+            assert "Item" in file_args[0]
+
+    def test_daily_append_continuation_no_paneType(self, tmp_config, monkeypatch):
+        """daily:append → daily:append: continuation must not carry paneType= or open."""
+        orig_calls = []
+
+        def fake_run(argv, timeout=30):
+            orig_calls.append(list(argv))
+            content_len = 0
+            for arg in argv:
+                if arg.startswith("content="):
+                    content_len = len(arg) - len("content=")
+                    break
+            if 1000 <= content_len <= 1800:
+                raise subprocess.TimeoutExpired(cmd=argv, timeout=timeout)
+            return subprocess.CompletedProcess(
+                args=argv, returncode=0, stdout="OK\n", stderr="",
+            )
+
+        monkeypatch.setattr(cmd_service, "_run_obsidian", fake_run)
+        cmd_service.execute_command(
+            f'obsidian daily:append paneType="split" content="{MEDIUM}" open'
+        )
+        for call in orig_calls[2:]:
+            all_args = " ".join(call)
+            assert "paneType=" not in all_args
+            assert "open" not in call
+
+
 class TestBuildCommand:
     def test_roundtrip(self):
         cmd = cmd_service._build_command(

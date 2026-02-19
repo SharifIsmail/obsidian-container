@@ -309,31 +309,30 @@ def _chunked_retry(base_cmd, command, params, flags):
 
     outputs = []
     for i, chunk in enumerate(chunks):
-        chunk_params = dict(params)
-        chunk_params["content"] = chunk
-        chunk_flags = set(flags)
-
         if i == 0:
             # First chunk: use original command with all original params/flags
             cmd = command
+            chunk_params = dict(params)
+            chunk_params["content"] = chunk
+            chunk_flags = set(flags)
         else:
-            # Continuation chunks: switch to follow-up command, add inline flag
+            # Continuation chunks: build params from scratch.
+            # Only pass what the follow-up command actually accepts.
+            #
+            # append/prepend need: file= or path=, content=, inline
+            # daily:append/daily:prepend need: content=, inline
             cmd = followup_cmd
-            chunk_flags.add("inline")
-            chunk_flags.discard("overwrite")
-            chunk_flags.discard("template")
-            chunk_flags.discard("open")
-            chunk_flags.discard("newtab")
-            # Remove template param for continuation
-            chunk_params.pop("template", None)
-            # For non-daily appends, target the file using file_param
-            # (which may have been updated after create if Obsidian renamed)
-            if cmd == "append" and file_param:
-                chunk_params.pop("name", None)
-                chunk_params.pop("path", None)
-                chunk_params.pop("file", None)
-                # Use file= to target by name resolution (works for renamed files)
-                chunk_params["file"] = file_param
+            chunk_params = {"content": chunk}
+            chunk_flags = {"inline"}
+
+            if cmd in ("append", "prepend"):
+                # Target the file — use file_param which may have been
+                # updated after create (Obsidian can rename files)
+                if file_param:
+                    chunk_params["file"] = file_param
+                elif "path" in params:
+                    chunk_params["path"] = params["path"]
+            # daily:append / daily:prepend need no file targeting
 
         cmd_str = _build_command(base_cmd, cmd, chunk_params, chunk_flags)
         argv = shlex.split(cmd_str)
