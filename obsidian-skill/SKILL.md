@@ -65,8 +65,8 @@ curl -s -X PUT "$ENDPOINT/vault/attachments/image.png" \
 ```
 
 **POST vs PUT:**
-- **POST** — use for **all markdown operations**. CLI commands (`create`, `append`, `prepend`) integrate with Obsidian's file index, trigger plugins, and update caches. Always prefer POST for notes.
-- **PUT `/vault/<path>`** — use for **non-markdown files** (images, PDFs, attachments). Content is sent as raw bytes directly to disk. Also available as a **fallback** for markdown if POST fails due to escaping issues.
+- **POST** — use for **all markdown operations**. CLI commands (`create`, `append`, `prepend`) integrate with Obsidian's file index, trigger plugins, and update caches. **Always use POST for notes — do not skip to PUT preemptively.**
+- **PUT `/vault/<path>`** — use for **non-markdown files** (images, PDFs, attachments). Content is sent as raw bytes directly to disk. Only use PUT for markdown if you have already attempted POST and it failed.
 
 ## Obsidian CLI Syntax
 
