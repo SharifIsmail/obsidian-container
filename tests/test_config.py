@@ -30,13 +30,13 @@ class TestGetAllowedCommands:
 
 
 class TestGetVaultPath:
-    def test_default_when_empty(self, tmp_config):
+    def test_none_when_empty(self, tmp_config):
         tmp_config["vault_path_file"].write_text("")
-        assert cmd_service.get_vault_path() == "/config"
+        assert cmd_service.get_vault_path() is None
 
-    def test_default_when_missing(self, tmp_config):
+    def test_none_when_missing(self, tmp_config):
         tmp_config["vault_path_file"].unlink()
-        assert cmd_service.get_vault_path() == "/config"
+        assert cmd_service.get_vault_path() is None
 
     def test_custom_path(self, tmp_config):
         tmp_config["vault_path_file"].write_text("/data/vault\n")

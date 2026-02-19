@@ -36,6 +36,7 @@ def tmp_config(tmp_path, monkeypatch):
     monkeypatch.setattr(cmd_service, "TOKEN_FILE", str(token_file))
     monkeypatch.setattr(cmd_service, "ALLOWED_COMMANDS_FILE", str(allowed_file))
     monkeypatch.setattr(cmd_service, "VAULT_PATH_FILE", str(vault_path_file))
+    monkeypatch.setattr(cmd_service, "OBSIDIAN_CONFIG", str(tmp_path / "obsidian.json"))
 
     return {
         "token_file": token_file,

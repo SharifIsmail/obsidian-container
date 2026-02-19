@@ -29,6 +29,7 @@ import urllib.parse
 TOKEN_FILE = "/config/cmd-service/tokens.md"
 ALLOWED_COMMANDS_FILE = "/config/cmd-service/allowed-commands.md"
 VAULT_PATH_FILE = "/config/cmd-service/vault-path.md"
+OBSIDIAN_CONFIG = "/config/.config/obsidian/obsidian.json"
 SESSION_TIMEOUT = 600  # 10 minutes
 DEFAULT_ALLOWED = {"obsidian"}
 
@@ -136,14 +137,28 @@ def get_allowed_commands():
 
 
 def get_vault_path():
-    """Read vault root from config file. Defaults to /config."""
+    """Read vault root from config file, Obsidian config, or return None."""
+    # 1. Explicit config file
     if os.path.isfile(VAULT_PATH_FILE):
         with open(VAULT_PATH_FILE, "r") as f:
             for line in f:
                 stripped = line.strip()
                 if stripped and not stripped.startswith("#"):
                     return stripped
-    return "/config"
+
+    # 2. Auto-detect from Obsidian's own config
+    if os.path.isfile(OBSIDIAN_CONFIG):
+        try:
+            with open(OBSIDIAN_CONFIG, "r") as f:
+                data = json.load(f)
+            for vault in data.get("vaults", {}).values():
+                if vault.get("open"):
+                    return vault["path"]
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    # 3. No vault found
+    return None
 
 
 def _write_file_as_abc(full_path, content):
@@ -318,7 +333,14 @@ class CommandHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(b"Invalid path.\n")
             return
 
-        vault_root = os.path.realpath(get_vault_path())
+        vault_path = get_vault_path()
+        if not vault_path:
+            self.send_response(503)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"No vault configured. Create a vault in Obsidian or set vault-path.md.\n")
+            return
+        vault_root = os.path.realpath(vault_path)
         full_path = os.path.realpath(os.path.join(vault_root, rel_path))
         if not full_path.startswith(vault_root + "/"):
             self.send_response(400)

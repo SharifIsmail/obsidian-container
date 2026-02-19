@@ -189,6 +189,39 @@ class TestObsidianCmdRoundTrip:
         recovered = content_arg.split("=", 1)[1]
         assert recovered == content
 
+    def test_heavy_frontmatter_with_many_quoted_wikilinks(self, http_client, mock_run_obsidian):
+        mock_run_obsidian.stdout = "ok\n"
+        content = (
+            '---\n'
+            'file path: "[[Attachments/How I would start my next Startup in Germany without a GmbH - Peer Richelsen.pdf]]"\n'
+            'creators: "[[Peer Richelsen]]"\n'
+            'content types: "[[Files]]"\n'
+            'belongs to: "[[Startups]]"\n'
+            'related: ["[[Germany]]", "[[Delaware]]", "[[YCombinator]]"]\n'
+            'tags: [startup, incorporation, GmbH, Delaware, y2020, YCombinator, holding-company]\n'
+            'keywords: [UG, GmbH, C-Corp, "Stripe Atlas", Clerky, SAFE, "convertible notes", '
+            '"Delaware C-Corp", Firstbase, "holding company", YCombinator, "parent company"]\n'
+            'permanent: true\n'
+            'final: true\n'
+            '---\n'
+            '\n'
+            '![[How I would start my next Startup in Germany without a GmbH - Peer Richelsen.pdf]]\n'
+        )
+        assert content.count('"') >= 16, "Test requires many double quotes"
+        obsidian_cmd(http_client.base_url, "test-token", "create",
+                     params={
+                         "path": "Named Entities/Files/How I would start my next Startup in Germany without a GmbH - Peer Richelsen.md",
+                         "content": content,
+                     },
+                     flags=["overwrite", "silent"])
+        argv = mock_run_obsidian.captured_calls[-1]
+        assert argv[0:2] == ["obsidian", "create"]
+        content_arg = [a for a in argv if a.startswith("content=")][0]
+        recovered = content_arg.split("=", 1)[1]
+        assert recovered == content
+        path_arg = [a for a in argv if a.startswith("path=")][0]
+        assert path_arg.split("=", 1)[1] == "Named Entities/Files/How I would start my next Startup in Germany without a GmbH - Peer Richelsen.md"
+
     def test_value_with_equals_sign(self, http_client, mock_run_obsidian):
         mock_run_obsidian.stdout = "ok\n"
         obsidian_cmd(http_client.base_url, "test-token", "read",
