@@ -7,8 +7,7 @@ Based on the [linuxserver/obsidian](https://docs.linuxserver.io/images/docker-ob
 ## What's included
 
 - **Obsidian desktop** accessible via browser (Selkies on ports 3000/3001)
-- **Command service** (port 9999) — HTTP API to execute [Obsidian CLI](https://github.com/czottmann/obsidian-cli) commands with token-based auth
-- **Binary patch** — automatically fixes an [Electron bug](https://github.com/electron/electron/issues/49801) where CLI commands containing emoji/CJK characters with spaces hang indefinitely
+- **Command service** (port 9999) — HTTP API to execute [Obsidian CLI](https://help.obsidian.md/cli) commands with token-based auth (requires Obsidian 1.12+)
 
 ## Quick start
 
