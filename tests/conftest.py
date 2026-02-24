@@ -140,11 +140,13 @@ def pytest_configure(config):
 
 @pytest.fixture()
 def e2e_client():
-    """Client for e2e tests. Skips if env vars are not set."""
+    """Client for e2e tests. Errors if env vars are not set."""
     url = os.environ.get("CMD_SERVICE_URL")
     token = os.environ.get("CMD_SERVICE_TOKEN")
-    if not url or not token:
-        pytest.skip("CMD_SERVICE_URL and CMD_SERVICE_TOKEN not set")
+    if not url:
+        raise RuntimeError("CMD_SERVICE_URL env var is required for e2e tests")
+    if not token:
+        raise RuntimeError("CMD_SERVICE_TOKEN env var is required for e2e tests")
 
     class E2EClient:
         base_url = url.rstrip("/")

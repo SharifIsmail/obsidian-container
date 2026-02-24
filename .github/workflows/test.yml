@@ -36,7 +36,6 @@ jobs:
         run: pip install pytest
 
       - name: Run e2e tests
-        if: env.CMD_SERVICE_URL != ''
         run: pytest -v -m e2e
         env:
           CMD_SERVICE_URL: ${{ secrets.CMD_SERVICE_URL }}
