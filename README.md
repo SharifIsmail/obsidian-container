@@ -34,6 +34,7 @@ vi .env          # set CUSTOM_USER and PASSWORD
 | `PASSWORD` | Web UI password |
 | `PUID` / `PGID` | Container user/group IDs (default: 1000) |
 | `TZ` | Timezone (default: `Etc/UTC`) |
+| `RCLONE_CONFIG` | Path to directory containing `rclone.conf` (default: `./rclone`) |
 
 ### Config volume
 
@@ -95,6 +96,29 @@ Parent directories are created automatically. The vault root defaults to `/confi
 ## Using with AI agents
 
 Download `obsidian-skill.zip` from the [Releases](https://github.com/SharifIsmail/obsidian-container/releases) page and extract the files into your Obsidian vault. These provide instructions and a command reference that AI agents can read to interact with your vault through the command API. The source files are in the `obsidian-skill/` directory.
+
+## Vault backup (rclone)
+
+An `rclone-backup` service syncs the vault notes to Google Drive every 15 minutes. To set it up:
+
+1. Install rclone on a machine with a browser and run:
+   ```bash
+   rclone authorize "drive"
+   ```
+2. Complete the OAuth flow in your browser.
+3. Copy the token JSON that rclone prints.
+4. On the server, create an `rclone.conf`:
+   ```bash
+   mkdir -p /path/to/rclone-config
+   cat > /path/to/rclone-config/rclone.conf <<EOF
+   [gdrive]
+   type = drive
+   token = {"paste":"the-token-json-here"}
+   EOF
+   ```
+5. Set `RCLONE_CONFIG=/path/to/rclone-config` in `.env`.
+
+If `rclone.conf` is not present, the backup container will start but syncs will fail silently.
 
 ## Ports
 

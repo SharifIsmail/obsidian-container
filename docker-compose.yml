@@ -12,3 +12,15 @@ services:
       - "127.0.0.1:9999:9999"
     shm_size: "1g"
     restart: unless-stopped
+
+  rclone-backup:
+    image: rclone/rclone
+    container_name: rclone-backup
+    entrypoint: /bin/sh
+    command: -c "while true; do sleep 900; rclone sync /data gdrive:notes --log-level NOTICE; done"
+    volumes:
+      - ${CONFIG_PATH:-./config}/notes:/data:ro
+      - ${RCLONE_CONFIG:-./rclone}:/config/rclone
+    environment:
+      - XDG_CONFIG_HOME=/config
+    restart: unless-stopped

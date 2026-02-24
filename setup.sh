@@ -27,6 +27,15 @@ if [ ! -d "$CONFIG_PATH/cmd-service" ]; then
     echo "Add at least one token to $CONFIG_PATH/cmd-service/tokens.md"
 fi
 
+# --- rclone check ---
+RCLONE_CONFIG="${RCLONE_CONFIG:-./rclone}"
+if [ ! -f "$RCLONE_CONFIG/rclone.conf" ]; then
+    echo "Note: rclone.conf not found at $RCLONE_CONFIG/rclone.conf"
+    echo "  Vault backup to Google Drive won't run until you set it up."
+    echo "  See README for instructions."
+    echo ""
+fi
+
 # --- Start ---
 docker compose up -d
 echo ""
