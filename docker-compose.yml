@@ -6,7 +6,6 @@ services:
     volumes:
       - ${CONFIG_PATH:-./config}:/config
       - ./custom-cont-init.d:/custom-cont-init.d:ro
-      - ./cmd_service.py:/custom-cont-init.d/cmd_service.py:ro
     ports:
       - "127.0.0.1:3000:3000"
       - "127.0.0.1:3001:3001"

@@ -4,7 +4,7 @@ set -e
 echo "[cmd-setup] Starting command service setup..."
 
 # --- Copy command service ---
-cp /custom-cont-init.d/cmd_service.py /usr/local/bin/obsidian-cmd-service.py
+cp /custom-cont-init.d/lib/cmd_service.py /usr/local/bin/obsidian-cmd-service.py
 chmod +x /usr/local/bin/obsidian-cmd-service.py
 echo "[cmd-setup] Command service written."
 

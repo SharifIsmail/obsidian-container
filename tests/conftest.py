@@ -12,8 +12,8 @@ import urllib.request
 
 import pytest
 
-# Make cmd_service importable from repo root
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+# Make cmd_service importable from custom-cont-init.d/lib/
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "custom-cont-init.d", "lib"))
 
 import cmd_service
 
